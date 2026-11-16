@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daftar — TekniKita</title>
+  <link rel="icon" href="/assets/img/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/assets/css/styles.css" />
+</head>
+<body>
+  <div class="auth-page">
+    <div class="auth-shell">
+      <aside class="auth-aside">
+        <a class="brand" href="/">
+          <span class="brand-logo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 6.5a3.5 3.5 0 1 0 3 3l-8 8a2.1 2.1 0 1 1-3-3l8-8Z"/><path d="M17 3l4 4"/></svg>
+          </span>
+          <span class="brand-text"><strong>Tekni<em>Kita</em></strong><small>Direktori teknisi elektronik</small></span>
+        </a>
+        <h2>Bergabung sebagai pelanggan atau mitra teknisi.</h2>
+        <p>Akun teknisi baru akan ditinjau admin sebelum tampil di katalog publik.</p>
+        <ul class="auth-list">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span>Gratis, tanpa biaya pendaftaran.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span>Teknisi mengatur sendiri layanan, tarif, dan slot.</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12l5 5L20 6"/></svg><span>Pelanggan bisa memantau status pesanan.</span></li>
+        </ul>
+        <div class="demo-box">
+          <strong>Sudah punya akun demo?</strong>
+          <code>teknisi1@teknikita.id / Teknisi#2026</code>
+          <code>pelanggan1@teknikita.id / Pelanggan#2026</code>
+        </div>
+      </aside>
+
+      <section class="auth-card">
+        <div>
+          <h1>Buat akun baru</h1>
+          <p class="sub">Pilih jenis akun, lalu lengkapi data Anda.</p>
+        </div>
+
+        <div class="auth-tabs" role="tablist">
+          <button type="button" id="tabCustomer" class="active" role="tab" aria-selected="true">Saya pelanggan</button>
+          <button type="button" id="tabTechnician" role="tab" aria-selected="false">Saya teknisi</button>
+        </div>
+
+        <form id="registerForm" class="form-grid" novalidate>
+          <div id="registerError" class="form-error hidden" role="alert"></div>
+          <input type="hidden" id="role" name="role" value="customer" />
+
+          <div class="form-row">
+            <div class="field">
+              <label for="name">Nama lengkap</label>
+              <input class="input" id="name" name="name" placeholder="Nama Anda" required autocomplete="name" />
+            </div>
+            <div class="field">
+              <label for="phone">Nomor telepon</label>
+              <input class="input" id="phone" name="phone" placeholder="0812xxxxxxx" required autocomplete="tel" />
+            </div>
+          </div>
+
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" type="email" id="email" name="email" placeholder="nama@email.com" required autocomplete="email" />
+          </div>
+
+          <div class="field">
+            <label for="password">Kata sandi</label>
+            <input class="input" type="password" id="password" name="password" placeholder="Minimal 8 karakter" required autocomplete="new-password" />
+            <span class="hint">Gunakan kombinasi huruf, angka, dan simbol.</span>
+          </div>
+
+          <div id="technicianFields" class="form-grid hidden">
+            <div class="field">
+              <label for="businessName">Nama bengkel / usaha</label>
+              <input class="input" id="businessName" name="businessName" placeholder="Contoh: Rizky Cell & Gadget Repair" />
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="categoryId">Kategori keahlian</label>
+                <select class="select" id="categoryId" name="categoryId">
+                  <option value="">Pilih kategori…</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="whatsappNumber">Nomor WhatsApp</label>
+                <input class="input" id="whatsappNumber" name="whatsappNumber" placeholder="6281200000000" inputmode="numeric" />
+                <span class="hint">Format internasional tanpa tanda +.</span>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="field">
+                <label for="tariffStart">Tarif servis mulai (Rp)</label>
+                <input class="input" id="tariffStart" name="tariffStart" type="number" min="0" step="1000" value="50000" />
+              </div>
+              <div class="field">
+                <label for="callFee">Biaya panggil ke rumah (Rp)</label>
+                <input class="input" id="callFee" name="callFee" type="number" min="0" step="1000" value="20000" />
+              </div>
+            </div>
+            <div class="field">
+              <label for="area">Area layanan</label>
+              <input class="input" id="area" name="area" placeholder="Contoh: Banyuwangi Kota" />
+            </div>
+            <div class="field">
+              <label for="address">Alamat bengkel</label>
+              <input class="input" id="address" name="address" placeholder="Jl. Ahmad Yani No. 14" />
+            </div>
+            <div class="field">
+              <label for="description">Keahlian / kerusakan yang ditangani</label>
+              <textarea class="textarea" id="description" name="description" placeholder="Spesialis ganti LCD, baterai kembung, HP mati total…"></textarea>
+            </div>
+            <div class="banner banner-info">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+              <span>Profil teknisi akan aktif di katalog setelah diverifikasi admin.</span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary btn-block" type="submit" id="registerSubmit">Daftar</button>
+        </form>
+        <p class="auth-switch">Sudah punya akun? <a href="/login">Masuk</a></p>
+        <p class="auth-switch"><a href="/">← Kembali ke katalog</a></p>
+      </section>
+    </div>
+  </div>
+  <div class="toast-root" id="toastRoot" aria-live="polite"></div>
+  <script type="module" src="/assets/js/auth.js"></script>
+</body>
+</html>

@@ -1,0 +1,31 @@
+{
+  "name": "teknikita",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TekniKita - direktori & pemesanan jasa teknisi elektronik (production app, MySQL)",
+  "type": "module",
+  "main": "server/index.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "db:init": "node db/init.js",
+    "db:seed": "node db/seed.js",
+    "db:reset": "node db/init.js --reset",
+    "db:check": "node db/check.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "compression": "^1.7.4",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-mysql-session": "^3.0.3",
+    "express-rate-limit": "^7.4.0",
+    "express-session": "^1.18.0",
+    "helmet": "^7.1.0",
+    "mysql2": "^3.11.0",
+    "zod": "^4.6.7"
+  }
+}
