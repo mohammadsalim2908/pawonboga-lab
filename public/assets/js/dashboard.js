@@ -9,8 +9,11 @@ import {
   icon,
   loadingState,
   openModal,
+  orderPriceText,
+  PRICE_TYPE_LABEL,
   roleBadge,
   rupiah,
+  servicePriceText,
   statusBadge,
   toast,
 } from './ui.js';
@@ -26,8 +29,8 @@ const NAVS = {
     { route: 'profile', label: 'Akun saya', icon: 'settings', title: 'Akun saya', subtitle: 'Perbarui data akun dan kata sandi.' },
   ],
   technician: [
-    { route: 'overview', label: 'Ringkasan', icon: 'chart', title: 'Ringkasan bengkel', subtitle: 'Performa pesanan dan ketersediaan slot hari ini.' },
-    { route: 'tech-profile', label: 'Profil bengkel', icon: 'store', title: 'Profil bengkel', subtitle: 'Informasi ini tampil di katalog pelanggan.' },
+    { route: 'overview', label: 'Ringkasan', icon: 'chart', title: 'Ringkasan teknisi', subtitle: 'Performa pesanan dan ketersediaan slot hari ini.' },
+    { route: 'tech-profile', label: 'Profil teknisi', icon: 'store', title: 'Profil teknisi', subtitle: 'Informasi ini tampil di katalog pelanggan.' },
     { route: 'services', label: 'Layanan & tarif', icon: 'box', title: 'Layanan & tarif', subtitle: 'Daftar jasa beserta harga dan estimasi pengerjaan.' },
     { route: 'tech-orders', label: 'Pesanan masuk', icon: 'clipboard', title: 'Pesanan masuk', subtitle: 'Konfirmasi, kerjakan, dan selesaikan pesanan pelanggan.' },
     { route: 'profile', label: 'Akun saya', icon: 'settings', title: 'Akun saya', subtitle: 'Perbarui data akun dan kata sandi.' },
@@ -209,10 +212,10 @@ function orderRows(orders, mode) {
         </td>
         <td>
           <div class="table-main">${escapeHtml(order.service_name || 'Servis umum')}</div>
-          <div class="table-sub">${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke bengkel'}${order.scheduled_date ? ` · ${formatDate(order.scheduled_date)}` : ''}</div>
+          <div class="table-sub">${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke lokasi teknisi'}${order.scheduled_date ? ` · ${formatDate(order.scheduled_date)}` : ''}</div>
         </td>
         <td>${escapeHtml(order.complaint || '—')}</td>
-        <td class="nowrap"><strong>${rupiah(order.estimated_total)}</strong></td>
+        <td class="nowrap"><strong>${orderPriceText(order)}</strong></td>
         <td>${statusBadge(order.status)}</td>
         <td><div class="row-actions">${actions.join('') || '<span class="muted">—</span>'}</div></td>
       </tr>`;
@@ -356,7 +359,7 @@ async function loadUsers() {
     const { users } = await api(`/admin/users?${params.toString()}`);
     table.innerHTML = users.length
       ? `<table class="data">
-          <thead><tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Bengkel</th><th>Terdaftar</th><th style="text-align:right">Aksi</th></tr></thead>
+          <thead><tr><th>Pengguna</th><th>Peran</th><th>Status</th><th>Profil teknisi</th><th>Terdaftar</th><th style="text-align:right">Aksi</th></tr></thead>
           <tbody>${users.map(userRow).join('')}</tbody>
         </table>`
       : emptyState('Tidak ada pengguna yang cocok dengan filter.', 'users');
@@ -412,7 +415,7 @@ async function adminUsers() {
     <div class="filter-bar">
       <div class="search-wrap">
         ${icon('search')}
-        <input class="input" id="userSearch" type="search" placeholder="Cari nama, email, atau bengkel…" value="${escapeHtml(state.userFilters.q)}" />
+        <input class="input" id="userSearch" type="search" placeholder="Cari nama, email, atau nama teknisi…" value="${escapeHtml(state.userFilters.q)}" />
       </div>
       <select class="select" id="userRoleFilter">
         <option value="">Semua peran</option>
@@ -497,7 +500,7 @@ async function openUserModal(user) {
 
         <div id="ufTechFields" class="form-grid ${user?.role === 'technician' ? '' : 'hidden'}">
           <div class="field">
-            <label for="ufBusiness">Nama bengkel</label>
+            <label for="ufBusiness">Nama teknisi / usaha</label>
             <input class="input" id="ufBusiness" value="${escapeHtml(user?.business_name || '')}" />
           </div>
           <div class="form-row">
@@ -525,11 +528,11 @@ async function openUserModal(user) {
           </div>
           <div class="form-row">
             <div class="field">
-              <label for="ufArea">Area</label>
+              <label for="ufArea">Area layanan</label>
               <input class="input" id="ufArea" placeholder="Banyuwangi Kota" />
             </div>
             <div class="field">
-              <label for="ufAddress">Alamat bengkel</label>
+              <label for="ufAddress">Alamat teknisi</label>
               <input class="input" id="ufAddress" placeholder="Jl. Ahmad Yani No. 14" />
             </div>
           </div>
@@ -581,7 +584,7 @@ async function openUserModal(user) {
         description: form.querySelector('#ufDesc').value.trim() || undefined,
       });
       if (!payload.businessName || !payload.categoryId) {
-        errorBox.textContent = 'Nama bengkel dan kategori wajib diisi untuk peran teknisi.';
+        errorBox.textContent = 'Nama teknisi/usaha dan kategori wajib diisi untuk peran teknisi.';
         errorBox.classList.remove('hidden');
         button.disabled = false;
         return;
@@ -617,7 +620,7 @@ async function adminTechnicians() {
   setView(`
     <div class="filter-bar">
       <div class="search-wrap">${icon('search')}
-        <input class="input" id="techSearch" type="search" placeholder="Cari bengkel, area, atau email…" />
+        <input class="input" id="techSearch" type="search" placeholder="Cari nama teknisi, area, atau email…" />
       </div>
     </div>
     <section class="panel"><div class="table-wrap" id="techTable">${loadingState()}</div></section>`);
@@ -636,7 +639,7 @@ async function adminTechnicians() {
       const { technicians } = await api(`/admin/technicians?q=${encodeURIComponent(search.value.trim())}`);
       table.innerHTML = technicians.length
         ? `<table class="data">
-            <thead><tr><th>Bengkel</th><th>Kategori</th><th>Tarif</th><th>Slot</th><th>Status</th><th>Unggulan</th><th style="text-align:right">Aksi</th></tr></thead>
+            <thead><tr><th>Teknisi</th><th>Kategori</th><th>Tarif</th><th>Slot</th><th>Status</th><th>Unggulan</th><th style="text-align:right">Aksi</th></tr></thead>
             <tbody>${technicians
               .map(
                 (tech) => `<tr>
@@ -722,12 +725,13 @@ async function adminCategories() {
       const { categories } = await api('/admin/categories');
       table.innerHTML = categories.length
         ? `<table class="data">
-            <thead><tr><th>Kategori</th><th>Deskripsi</th><th>Teknisi</th><th>Urutan</th><th style="text-align:right">Aksi</th></tr></thead>
+            <thead><tr><th>Kategori</th><th>Deskripsi</th><th>Pemilik</th><th>Teknisi</th><th>Urutan</th><th style="text-align:right">Aksi</th></tr></thead>
             <tbody>${categories
               .map(
                 (category) => `<tr>
                   <td><div class="table-main">${escapeHtml(category.name)}</div><div class="table-sub">${escapeHtml(category.icon)}</div></td>
                   <td class="table-sub">${escapeHtml(category.description || '—')}</td>
+                  <td class="table-sub">${category.is_private ? `Pribadi · ${escapeHtml(category.owner_name || 'teknisi')}` : '<span class="badge badge-gray">Umum</span>'}</td>
                   <td>${category.technician_count}</td>
                   <td>${category.sort_order}</td>
                   <td><div class="row-actions">
@@ -865,9 +869,9 @@ async function adminOrders() {
                 (order) => `<tr>
                   <td><span class="order-code">${escapeHtml(order.code)}</span><div class="table-sub">${formatDate(order.created_at, true)}</div></td>
                   <td><div class="table-main">${escapeHtml(order.customer_name)}</div><div class="table-sub">${escapeHtml(order.customer_phone || '—')}</div></td>
-                  <td><div>${escapeHtml(order.service_name || 'Servis umum')}</div><div class="table-sub">${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke bengkel'}</div></td>
+                  <td><div>${escapeHtml(order.service_name || 'Servis umum')}</div><div class="table-sub">${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke lokasi teknisi'}</div></td>
                   <td class="table-sub" style="max-width:220px">${escapeHtml(order.complaint || '—')}</td>
-                  <td class="nowrap">${rupiah(order.estimated_total)}</td>
+                  <td class="nowrap">${orderPriceText(order)}</td>
                   <td>${statusBadge(order.status)}</td>
                   <td class="table-sub">${escapeHtml(order.technician_name)}</td>
                 </tr>`,
@@ -896,7 +900,7 @@ async function techOverview() {
   setView(`
     ${!overview.isVerified ? `<div class="banner banner-warn">${icon('alert')}
       <span><strong>Profil Anda menunggu verifikasi admin.</strong>
-      Selama belum diverifikasi, bengkel Anda belum tampil di katalog pelanggan. Lengkapi profil bengkel agar cepat disetujui.</span></div>` : ''}
+      Selama belum diverifikasi, profil Anda belum tampil di katalog pelanggan. Lengkapi profil teknisi agar cepat disetujui.</span></div>` : ''}
 
     <div class="stats-grid">
       ${statCard('Total pesanan', stats.totalOrders, `${stats.pending} menunggu konfirmasi`, 'clipboard')}
@@ -935,7 +939,7 @@ async function techOverview() {
                   <td><span class="order-code">${escapeHtml(order.code)}</span></td>
                   <td>${escapeHtml(order.customer_name)}</td>
                   <td>${statusBadge(order.status)}</td>
-                  <td class="nowrap">${rupiah(order.estimated_total)}</td>
+                  <td class="nowrap">${orderPriceText(order)}</td>
                 </tr>`,
               )
               .join('')}</tbody></table>` : emptyState('Belum ada pesanan masuk.', 'clipboard')}
@@ -944,7 +948,7 @@ async function techOverview() {
     </div>
 
     ${profile ? `<section class="panel" style="margin-top:1rem">
-      <div class="panel-head"><div><h3>Profil publik bengkel</h3><p>Tampilan ringkas seperti di katalog pelanggan.</p></div>
+      <div class="panel-head"><div><h3>Profil publik teknisi</h3><p>Tampilan ringkas seperti di katalog pelanggan.</p></div>
         <button class="btn btn-outline btn-sm" data-goto="tech-profile">${icon('edit')} Edit profil</button></div>
       <div class="panel-body">
         <div class="tech-head">
@@ -961,6 +965,7 @@ async function techOverview() {
         <p class="tech-desc" style="margin-top:.7rem;min-height:auto">${escapeHtml(profile.description)}</p>
         <div class="tech-facts" style="margin-top:.5rem">
           <span>${icon('pin')} ${escapeHtml(profile.address)} (${escapeHtml(profile.area)})</span>
+          ${profile.maps_url ? `<a href="${escapeHtml(profile.maps_url)}" target="_blank" rel="noopener noreferrer">${icon('pin')} Lihat lokasi di Google Maps</a>` : ''}
           <span>${icon('phone')} WhatsApp ${escapeHtml(profile.whatsapp_number)}</span>
           <span>${icon('money')} Mulai ${rupiah(profile.tariff_start)} · panggil ${rupiah(profile.call_fee)}</span>
         </div>
@@ -983,11 +988,18 @@ async function techOverview() {
 
 /* ----------------------------- Teknisi: profile -------------------------- */
 async function techProfile() {
-  const [{ profile }, categories] = await Promise.all([api('/technician/profile'), getCategories()]);
+  const [profileData, categoryData] = await Promise.all([api('/technician/profile'), api('/technician/categories')]);
+  const { profile } = profileData;
+  const categoryOptions = categoryData.categories
+    .map(
+      (category) =>
+        `<option value="${category.id}" ${Number(profile?.category_id) === category.id ? 'selected' : ''}>${escapeHtml(category.name)}${category.is_own ? ' (pribadi)' : ''}</option>`,
+    )
+    .join('');
 
   if (!profile) {
     setView(`<div class="banner banner-warn">${icon('alert')}
-      <span><strong>Profil teknisi belum tersedia.</strong>Hubungi admin untuk melengkapi profil bengkel Anda.</span></div>`);
+      <span><strong>Profil teknisi belum tersedia.</strong>Hubungi admin untuk melengkapi profil Anda.</span></div>`);
     return;
   }
 
@@ -995,21 +1007,24 @@ async function techProfile() {
     ${!profile.is_verified ? `<div class="banner banner-warn">${icon('alert')}
       <span><strong>Belum terverifikasi.</strong>Profil tidak tampil di katalog sampai admin menyetujui.</span></div>` : ''}
     <section class="panel" style="max-width:820px">
-      <div class="panel-head"><div><h3>Informasi bengkel</h3><p>Semua kolom di bawah tampil di katalog pelanggan.</p></div></div>
+      <div class="panel-head"><div><h3>Informasi teknisi</h3><p>Semua kolom di bawah tampil di katalog pelanggan.</p></div></div>
       <div class="panel-body">
         <form id="techProfileForm" class="form-grid" novalidate>
           <div id="techProfileError" class="form-error hidden" role="alert"></div>
           <div id="techProfileSuccess" class="form-success hidden" role="status"></div>
           <div class="field">
-            <label for="tpBusiness">Nama bengkel / teknisi</label>
-            <input class="input" id="tpBusiness" value="${escapeHtml(profile.business_name)}" required />
+            <label for="tpBusiness">Nama teknisi / usaha</label>
+            <input class="input" id="tpBusiness" value="${escapeHtml(profile.business_name)}" placeholder="Contoh: Rizky Cell & Gadget Repair" required />
+            <span class="hint">Nama yang dilihat pelanggan di katalog.</span>
           </div>
           <div class="form-row">
             <div class="field">
               <label for="tpCategory">Kategori keahlian</label>
-              <select class="select" id="tpCategory" required>
-                ${optionsFromCategories(profile.category_id)}
-              </select>
+              <div style="display:flex;gap:.4rem">
+                <select class="select" id="tpCategory" required>${categoryOptions}</select>
+                <button type="button" class="btn btn-outline" id="tpAddCategory" title="Buat kategori pribadi">${icon('plus')} Kategori</button>
+              </div>
+              <span class="hint">Kategori buatan Anda bersifat pribadi: tidak muncul di akun teknisi lain.</span>
             </div>
             <div class="field">
               <label for="tpWhatsapp">Nomor WhatsApp</label>
@@ -1030,7 +1045,8 @@ async function techProfile() {
           <div class="form-row">
             <div class="field">
               <label for="tpArea">Area layanan</label>
-              <input class="input" id="tpArea" value="${escapeHtml(profile.area)}" required />
+              <input class="input" id="tpArea" value="${escapeHtml(profile.area)}" placeholder="Contoh: Banyuwangi Kota, Genteng" required />
+              <span class="hint">Wilayah yang Anda jangkau (kecamatan/kota), minimal 3 karakter. Pelanggan memakai ini saat mencari teknisi.</span>
             </div>
             <div class="field">
               <label for="tpSlots">Slot tersedia hari ini</label>
@@ -1038,13 +1054,19 @@ async function techProfile() {
             </div>
           </div>
           <div class="field">
-            <label for="tpAddress">Alamat bengkel</label>
-            <input class="input" id="tpAddress" value="${escapeHtml(profile.address)}" required />
+            <label for="tpAddress">Alamat teknisi / lokasi layanan</label>
+            <input class="input" id="tpAddress" value="${escapeHtml(profile.address)}" placeholder="Jl. Ahmad Yani No. 14, Banyuwangi Kota" required />
+            <span class="hint">Alamat lengkap atau patokan lokasi Anda.</span>
+          </div>
+          <div class="field">
+            <label for="tpMaps">Tautan Google Maps (opsional)</label>
+            <input class="input" id="tpMaps" value="${escapeHtml(profile.maps_url || '')}" placeholder="https://maps.app.goo.gl/xxxx" />
+            <span class="hint">Buka lokasi Anda di Google Maps → Bagikan → tempel tautannya di sini. Pelanggan bisa langsung membuka rute.</span>
           </div>
           <div class="field">
             <label for="tpDescription">Deskripsi keahlian</label>
-            <textarea class="textarea" id="tpDescription" rows="5" required>${escapeHtml(profile.description)}</textarea>
-            <span class="hint">Sebutkan jenis kerusakan yang Anda tangani agar mudah ditemukan pelanggan.</span>
+            <textarea class="textarea" id="tpDescription" rows="5" required placeholder="Contoh: Ganti LCD, baterai kembung, konektor cas, dan HP mati total semua merek. Melayani servis di rumah untuk area Banyuwangi Kota, garansi servis 30 hari.">${escapeHtml(profile.description)}</textarea>
+            <span class="hint">Ceritakan keahlian, merek yang biasa Anda tangani, dan jaminan/garansi agar pelanggan yakin.</span>
           </div>
           <div class="dash-actions">
             <button class="btn btn-primary" type="submit">${icon('check')} Simpan profil</button>
@@ -1070,6 +1092,7 @@ async function techProfile() {
           categoryId: Number(form.querySelector('#tpCategory').value),
           description: form.querySelector('#tpDescription').value.trim(),
           address: form.querySelector('#tpAddress').value.trim(),
+          mapsUrl: form.querySelector('#tpMaps').value.trim(),
           area: form.querySelector('#tpArea').value.trim(),
           whatsappNumber: form.querySelector('#tpWhatsapp').value.trim(),
           tariffStart: Number(form.querySelector('#tpTariff').value || 0),
@@ -1077,9 +1100,56 @@ async function techProfile() {
           slotsAvailable: Number(form.querySelector('#tpSlots').value || 0),
         },
       });
-      successBox.textContent = 'Profil bengkel berhasil disimpan.';
+      successBox.textContent = 'Profil teknisi berhasil disimpan.';
       successBox.classList.remove('hidden');
-      toast('Profil bengkel diperbarui.');
+      toast('Profil teknisi diperbarui.');
+    } catch (error) {
+      errorBox.textContent = error.message;
+      errorBox.classList.remove('hidden');
+    }
+  });
+
+  document.getElementById('tpAddCategory')?.addEventListener('click', () => {
+    openNewCategoryModal((category) => {
+      const select = document.getElementById('tpCategory');
+      const option = document.createElement('option');
+      option.value = category.id;
+      option.textContent = `${category.name} (pribadi)`;
+      option.selected = true;
+      select.append(option);
+    });
+  });
+}
+
+/** Teknisi membuat kategori pribadi (tidak terlihat oleh teknisi lain). */
+function openNewCategoryModal(onCreated) {
+  const modal = openModal({
+    title: 'Kategori keahlian baru',
+    subtitle: 'Kategori ini hanya tersedia untuk akun Anda.',
+    body: `<form id="newCategoryForm" class="form-grid">
+      <div id="newCategoryError" class="form-error hidden" role="alert"></div>
+      <div class="field">
+        <label for="ncName">Nama kategori</label>
+        <input class="input" id="ncName" placeholder="Contoh: Servis Tablet & iPad" />
+        <span class="hint">Tulis keahlian yang belum ada di daftar, mis. “Instalasi Listrik Rumah”.</span>
+      </div>
+    </form>`,
+    footer: `<button type="button" class="btn btn-outline" data-modal-close>Batal</button>
+      <button type="button" class="btn btn-primary" id="saveNewCategory">Simpan</button>`,
+  });
+
+  modal.footer.querySelector('[data-modal-close]').addEventListener('click', modal.close);
+  modal.footer.querySelector('#saveNewCategory').addEventListener('click', async () => {
+    const errorBox = modal.body.querySelector('#newCategoryError');
+    errorBox.classList.add('hidden');
+    try {
+      const { category } = await api('/technician/categories', {
+        method: 'POST',
+        body: { name: modal.body.querySelector('#ncName').value.trim(), icon: 'wrench' },
+      });
+      toast('Kategori pribadi dibuat dan dipilih.');
+      modal.close();
+      onCreated(category);
     } catch (error) {
       errorBox.textContent = error.message;
       errorBox.classList.remove('hidden');
@@ -1105,7 +1175,10 @@ async function techServices() {
               .map(
                 (service) => `<tr>
                   <td><div class="table-main">${escapeHtml(service.name)}</div><div class="table-sub">${escapeHtml(service.description || '—')}</div></td>
-                  <td class="nowrap">${rupiah(service.price)}</td>
+                  <td class="nowrap">
+                    <div>${servicePriceText(service)}</div>
+                    <div class="table-sub">${PRICE_TYPE_LABEL[service.price_type] || 'Harga tetap'} · ${service.includes_parts ? 'termasuk komponen' : 'jasa saja'}</div>
+                  </td>
                   <td class="nowrap">${service.estimated_minutes} menit</td>
                   <td>${service.is_active ? '<span class="badge badge-green">Aktif</span>' : '<span class="badge badge-gray">Nonaktif</span>'}</td>
                   <td><div class="row-actions">
@@ -1163,15 +1236,32 @@ function openServiceModal(service, reload) {
         <label for="svDesc">Deskripsi</label>
         <input class="input" id="svDesc" value="${escapeHtml(service?.description || '')}" placeholder="Garansi pemasangan 30 hari" />
       </div>
+      <div class="field">
+        <label for="svPriceType">Tipe harga</label>
+        <select class="select" id="svPriceType">
+          <option value="fixed" ${(service?.price_type ?? 'fixed') === 'fixed' ? 'selected' : ''}>Harga tetap — pelanggan langsung tahu biayanya</option>
+          <option value="starting" ${service?.price_type === 'starting' ? 'selected' : ''}>Mulai dari — harga final setelah pengecekan</option>
+          <option value="quote" ${service?.price_type === 'quote' ? 'selected' : ''}>Sesuai diagnosa — biaya belum bisa ditentukan</option>
+        </select>
+        <span class="hint">Gunakan “sesuai diagnosa” untuk servis yang biayanya bergantung pada kerusakan.</span>
+      </div>
       <div class="form-row">
         <div class="field">
           <label for="svPrice">Harga (Rp)</label>
           <input class="input" type="number" min="0" step="5000" id="svPrice" value="${service?.price ?? 100000}" />
+          <span class="hint" id="svPriceHint">Tampil sebagai “Mulai Rp …” di katalog.</span>
         </div>
         <div class="field">
-          <label for="svMinutes">Estimasi pengerjaan (menit)</label>
-          <input class="input" type="number" min="10" max="2880" step="10" id="svMinutes" value="${service?.estimated_minutes ?? 60}" />
+          <label for="svIncludesParts">Cakupan harga</label>
+          <select class="select" id="svIncludesParts">
+            <option value="0" ${service && service.includes_parts ? '' : 'selected'}>Jasa saja (komponen terpisah)</option>
+            <option value="1" ${service?.includes_parts ? 'selected' : ''}>Termasuk komponen / spare part</option>
+          </select>
         </div>
+      </div>
+      <div class="field">
+        <label for="svMinutes">Estimasi pengerjaan (menit)</label>
+        <input class="input" type="number" min="10" max="2880" step="10" id="svMinutes" value="${service?.estimated_minutes ?? 60}" />
       </div>
       <label class="checkbox">
         <input type="checkbox" id="svActive" ${service ? (service.is_active ? 'checked' : '') : 'checked'} />
@@ -1182,6 +1272,23 @@ function openServiceModal(service, reload) {
       <button type="button" class="btn btn-primary" id="saveService">Simpan</button>`,
   });
 
+  const priceTypeSelect = modal.body.querySelector('#svPriceType');
+  const priceInput = modal.body.querySelector('#svPrice');
+  const priceHint = modal.body.querySelector('#svPriceHint');
+
+  function syncPriceField() {
+    const quote = priceTypeSelect.value === 'quote';
+    priceInput.disabled = quote;
+    priceInput.style.opacity = quote ? '.5' : '1';
+    priceHint.textContent = quote
+      ? 'Harga tidak ditampilkan; pelanggan melihat “Sesuai diagnosa”.'
+      : priceTypeSelect.value === 'starting'
+        ? 'Tampil sebagai “Mulai Rp …” di katalog.'
+        : 'Harga tetap yang tampil di katalog.';
+  }
+  priceTypeSelect.addEventListener('change', syncPriceField);
+  syncPriceField();
+
   modal.footer.querySelector('[data-modal-close]').addEventListener('click', modal.close);
   modal.footer.querySelector('#saveService').addEventListener('click', async () => {
     const errorBox = modal.body.querySelector('#serviceError');
@@ -1189,6 +1296,8 @@ function openServiceModal(service, reload) {
     const payload = {
       name: modal.body.querySelector('#svName').value.trim(),
       description: modal.body.querySelector('#svDesc').value.trim(),
+      priceType: priceTypeSelect.value,
+      includesParts: modal.body.querySelector('#svIncludesParts').value === '1',
       price: Number(modal.body.querySelector('#svPrice').value || 0),
       estimatedMinutes: Number(modal.body.querySelector('#svMinutes').value || 60),
       isActive: modal.body.querySelector('#svActive').checked,

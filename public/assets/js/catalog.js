@@ -7,7 +7,10 @@ import {
   formatDate,
   icon,
   openModal,
+  orderPriceText,
+  PRICE_TYPE_LABEL,
   rupiah,
+  servicePriceText,
   toast,
 } from './ui.js';
 
@@ -188,10 +191,14 @@ async function openDetail(techId) {
           .map(
             (service) => `<div class="service-item">
               <div>
-                <h4>${escapeHtml(service.name)}</h4>
-                <p>${escapeHtml(service.description)} · ± ${service.estimated_minutes} menit</p>
+                <h4>${escapeHtml(service.name)}
+                  <span class="badge ${service.includes_parts ? 'badge-green' : 'badge-gray'}" style="margin-left:.3rem;font-size:.62rem">
+                    ${service.includes_parts ? 'Termasuk komponen' : 'Jasa saja'}
+                  </span>
+                </h4>
+                <p>${escapeHtml(service.description)} · ± ${service.estimated_minutes} menit · ${PRICE_TYPE_LABEL[service.price_type] || 'Harga tetap'}</p>
               </div>
-              <strong>${rupiah(service.price)}</strong>
+              <strong style="text-align:right">${servicePriceText(service)}</strong>
             </div>`,
           )
           .join('')
@@ -216,14 +223,19 @@ async function openDetail(techId) {
         <span>${icon('users')} Pengelola: ${escapeHtml(technician.owner_name)}</span>
         <span>${icon('phone')} WhatsApp: ${escapeHtml(technician.whatsapp_number)}</span>
       </div>
+      ${
+        technician.maps_url
+          ? `<a class="btn btn-outline btn-sm" style="margin-top:.6rem" href="${escapeHtml(technician.maps_url)}" target="_blank" rel="noopener noreferrer">${icon('pin')} Buka lokasi di Google Maps</a>`
+          : ''
+      }
       <div class="price-row" style="margin-top:.9rem">
         <div><span>Tarif servis mulai</span><strong>${rupiah(technician.tariff_start)}</strong></div>
         <div><span>Biaya panggil ke rumah</span><strong>${rupiah(technician.call_fee)}</strong></div>
       </div>
       <div class="price-summary" style="margin-top:.75rem">
         <div><span>Slot tersedia hari ini</span><strong>${technician.slots_available} slot</strong></div>
-        <div><span>Estimasi datang ke bengkel</span><strong>${rupiah(technician.tariff_start)}</strong></div>
-        <div class="total"><span>Estimasi panggil ke rumah</span><span>${rupiah(technician.tariff_start + technician.call_fee)}</span></div>
+        <div><span>Datang ke lokasi teknisi</span><strong>Mulai ${rupiah(technician.tariff_start)}</strong></div>
+        <div class="total"><span>Panggil ke rumah</span><span>Mulai ${rupiah(technician.tariff_start + technician.call_fee)}</span></div>
       </div>
       <h4 style="margin:1rem 0 .35rem;font-size:.9rem">Layanan &amp; tarif</h4>
       ${serviceList}`;
@@ -290,7 +302,9 @@ async function openBooking(techId) {
   const today = new Date().toISOString().slice(0, 10);
   const serviceOptions = [
     `<option value="">Servis umum (tarif mulai ${rupiah(technician.tariff_start)})</option>`,
-    ...services.map((service) => `<option value="${service.id}">${escapeHtml(service.name)} — ${rupiah(service.price)}</option>`),
+    ...services.map(
+      (service) => `<option value="${service.id}">${escapeHtml(service.name)} — ${servicePriceText(service)}</option>`,
+    ),
   ].join('');
 
   modal.body.innerHTML = `
@@ -311,7 +325,7 @@ async function openBooking(techId) {
           </label>
           <label class="checkbox" style="padding:.55rem .7rem;border:1px solid var(--line);border-radius:11px;background:#fff">
             <input type="radio" name="mode" value="workshop" />
-            <span><strong>Datang ke bengkel</strong><br><span class="muted" style="font-size:.72rem">tanpa biaya panggil</span></span>
+            <span><strong>Datang ke lokasi teknisi</strong><br><span class="muted" style="font-size:.72rem">tanpa biaya panggil</span></span>
           </label>
         </div>
       </fieldset>
@@ -352,18 +366,31 @@ async function openBooking(techId) {
 
   function currentTotal() {
     const selected = services.find((service) => String(service.id) === serviceSelect.value);
-    const base = selected ? selected.price : technician.tariff_start;
+    const priceType = selected ? selected.price_type : 'starting';
+    const base = selected ? Number(selected.price) : Number(technician.tariff_start);
     const mode = form.querySelector('input[name="mode"]:checked').value;
-    const fee = mode === 'home' ? technician.call_fee : 0;
-    return { base, fee, total: base + fee, selected };
+    const fee = mode === 'home' ? Number(technician.call_fee) : 0;
+    const total = priceType === 'quote' ? 0 : base + fee;
+    return { base, fee, total, priceType, selected };
   }
 
   function updateEstimate() {
-    const { base, fee, total } = currentTotal();
+    const { base, fee, total, priceType, selected } = currentTotal();
+    const baseText = priceType === 'quote' ? 'Sesuai diagnosa' : priceType === 'starting' ? `Mulai ${rupiah(base)}` : rupiah(base);
+    const totalText = priceType === 'quote' ? 'Sesuai diagnosa' : priceType === 'starting' ? `Mulai ${rupiah(total)}` : rupiah(total);
     estimateBox.innerHTML = `
-      <div><span>Tarif jasa</span><strong>${rupiah(base)}</strong></div>
+      <div><span>Perkiraan jasa</span><strong>${baseText}</strong></div>
       <div><span>Biaya panggil</span><strong>${fee ? rupiah(fee) : 'Gratis'}</strong></div>
-      <div class="total"><span>Estimasi total</span><span>${rupiah(total)}</span></div>`;
+      <div class="total"><span>Perkiraan total</span><span>${totalText}</span></div>
+      ${
+        priceType === 'quote'
+          ? '<div><span class="muted" style="font-size:.72rem">Harga final ditentukan teknisi setelah pemeriksaan.</span></div>'
+          : selected && selected.includes_parts
+            ? '<div><span class="muted" style="font-size:.72rem">Perkiraan sudah termasuk komponen pengganti.</span></div>'
+            : selected
+              ? '<div><span class="muted" style="font-size:.72rem">Perkiraan biaya jasa, belum termasuk komponen (jika ada).</span></div>'
+              : ''
+      }`;
   }
 
   form.addEventListener('change', updateEstimate);
@@ -409,8 +436,8 @@ function renderSuccess(modal, result, technician) {
     <div class="price-summary" style="margin-bottom:.8rem">
       <div><span>Teknisi</span><strong>${escapeHtml(technician.business_name)}</strong></div>
       <div><span>Layanan</span><strong>${escapeHtml(order.service_name)}</strong></div>
-      <div><span>Mode</span><strong>${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke bengkel'}</strong></div>
-      <div class="total"><span>Estimasi total</span><span>${rupiah(order.estimated_total)}</span></div>
+      <div><span>Mode</span><strong>${order.service_mode === 'home' ? 'Panggil ke rumah' : 'Datang ke lokasi teknisi'}</strong></div>
+      <div class="total"><span>Perkiraan biaya</span><span>${orderPriceText(order)}</span></div>
     </div>
     <label class="label" for="waPreview">Pratinjau pesan WhatsApp</label>
     <pre class="message-preview" id="waPreview">${escapeHtml(whatsapp.message)}</pre>

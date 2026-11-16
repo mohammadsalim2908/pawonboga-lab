@@ -1,123 +1,114 @@
-# SPEC.md — TekniKita (Direktori & Pemesanan Jasa Teknisi Elektronik)
+# Spesifikasi Aplikasi TekniKita
 
-## 1. Tujuan Aplikasi
-**TekniKita** adalah aplikasi web direktori dan pemesanan layanan teknisi perbaikan perangkat elektronik rumah tangga (HP, laptop, kulkas, televisi, mesin cuci, dan AC) yang dirancang untuk membantu keluarga menemukan teknisi terpercaya dengan cepat. Aplikasi ini menyediakan transparansi estimasi tarif servis, biaya panggilan ke rumah, ketersediaan slot harian, lokasi bengkel, serta integrasi pesan otomatis ke WhatsApp.
-
-Dokumen ini disusun sebagai acuan pengembangan *Minimum Viable Product* (MVP) untuk latihan *vibe coding* 1 hari tanpa ketergantungan pada *backend* maupun layanan berbayar.
+**Direktori & pemesanan jasa teknisi elektronik rumah tangga** — HP, laptop, kulkas, mesin cuci, TV, dan AC.
 
 ---
 
-## 2. Pengguna (Target Users)
-Aplikasi dijalankan pada **satu perangkat** tanpa mekanisme autentikasi/login palsu, dengan dua mode peran pengguna yang dapat diakses melalui navigasi utama:
-1. **Calon Pelanggan (Keluarga):** Mencari teknisi berdasarkan kategori perangkat atau jenis kerusakan, membandingkan tarif dan slot tersedia, lalu menghubungi teknisi via WhatsApp untuk memesan layanan *panggil ke rumah* atau *datang ke lokasi bengkel*.
-2. **Pengelola / Admin Direktori:** Mengelola daftar mitra teknisi (menambah, mengubah, menghapus data, mengatur status unggulan, dan memperbarui ketersediaan slot harian) melalui tampilan dashboard demo.
+## 1. Apa itu TekniKita?
 
----
+TekniKita membantu keluarga menemukan teknisi elektronik yang bisa dipercaya tanpa harus tanya-tanya di grup chat. Pelanggan bisa melihat tarif, biaya panggil, sisa slot hari ini, dan lokasi teknisi sebelum menghubungi. Setelah memilih, pesanan tercatat dengan kode unik dan ringkasannya langsung siap dikirim ke WhatsApp teknisi.
 
-## 3. Daftar Fitur MVP
-### A. Halaman Katalog Teknisi (Tampilan Pelanggan)
-1. **Daftar 8 Profil Layanan Teknisi Contoh:** Mencakup spesialisasi *HP & Gadget*, *Laptop & PC*, *Kulkas & Mesin Cuci*, *TV & Audio*, dan *AC & Pendingin* lengkap dengan ilustrasi/avatar SVG lokal.
-2. **Informasi Kartu Teknisi:** Menampilkan nama teknisi/bengkel, kategori keahlian, lencana *Unggulan*, area/patokan lokasi bengkel, deskripsi kerusakan yang ditangani, **Tarif Servis Mulai (Rp)**, **Biaya Panggil ke Rumah (Rp)**, dan **Slot Tersedia Hari Ini**.
-3. **Pencarian Real-Time:** Menyaring teknisi berdasarkan kata kunci nama bengkel, area lokasi, atau jenis kerusakan (misalnya: *"layar pecah"*, *"tidak dingin"*, *"mati total"*).
-4. **Filter Kategori Keahlian:** Menyaring daftar teknisi berdasarkan kategori perangkat atau menampilkan semua kategori.
-5. **Pengurutan (*Sorting*):** Mengurutkan daftar berdasarkan *Rekomendasi (Unggulan)*, *Tarif Servis Termurah*, *Tarif Servis Tertinggi*, dan *Slot Tersedia Terbanyak*.
-6. **Pemesanan via WhatsApp Terstruktur:**
-   - Membuka dialog konfirmasi sebelum mengarahkan ke WhatsApp (`wa.me`).
-   - Pelanggan dapat memilih mode layanan: **Panggil ke Rumah** (otomatis menghitung estimasi `tarifMulai + biayaPanggil`) atau **Datang ke Lokasi Teknisi** (tanpa biaya panggil).
-   - Pelanggan dapat mengisi detail keluhan perangkat secara opsional, melihat pratinjau pesan otomatis, menyalin teks pesan, atau langsung membuka tautan WhatsApp.
-   - Jika `slotTersedia === 0`, status tampil sebagai **Slot Penuh** dan tombol pemesanan dinonaktifkan.
+Aplikasi ini bukan sekadar katalog. Ada tiga pihak yang benar-benar bekerja di dalamnya: **admin** yang mengelola pengguna dan memverifikasi mitra, **teknisi** yang mengatur profil serta daftar layanannya sendiri, dan **pelanggan** yang mencari lalu memesan. Semua data tersimpan di basis data MySQL, bukan lagi di browser.
 
-### B. Dashboard Demo Pengelola (CRUD & Ringkasan)
-1. **Ringkasan Statistik Direktori:**
-   - **Total Teknisi:** Jumlah keseluruhan mitra teknisi aktif.
-   - **Total Slot Tersedia Hari Ini:** Akumulasi seluruh `slotTersedia` dari semua teknisi.
-   - **Jumlah Kategori:** Total kategori keahlian yang tersedia.
-2. **Operasi CRUD Teknisi:**
-   - **Create:** Menambah data teknisi baru dengan validasi input (tarif dan slot tidak boleh bernilai negatif).
-   - **Read:** Menampilkan daftar seluruh teknisi dalam tabel/daftar pengelolaan.
-   - **Update:** Mengedit seluruh detail profil teknisi maupun mengubah status *Unggulan* dan jumlah slot secara cepat.
-   - **Delete:** Menghapus profil teknisi dari daftar dengan konfirmasi.
-3. **Persistensi & Reset Data:**
-   - Seluruh perubahan disimpan secara otomatis ke `localStorage` dengan kunci `teknikita:technicians:v1`.
-   - Tersedia tombol **Reset Data Demo** untuk mengembalikan data ke 8 profil contoh awal.
+## 2. Gambaran sistem
 
----
+Aplikasi berjalan sebagai satu server web:
 
-## 4. Data Model
-Setiap entitas layanan teknisi direpresentasikan dalam objek JavaScript dengan struktur berikut:
+- **Backend:** Node.js + Express. Menangani login, API, validasi, dan seluruh aturan bisnis.
+- **Database:** MySQL. Menyimpan pengguna, kategori, teknisi, layanan, pesanan, dan sesi login.
+- **Frontend:** HTML + CSS + JavaScript vanilla. Tanpa framework dan tanpa CDN, jadi ringan dan cepat dibuka.
+- **Autentikasi:** sesi login disimpan di tabel `sessions`; browser hanya memegang cookie `HttpOnly`.
 
-```json
-{
-  "id": "tek-01",
-  "nama": "Rizky Cell & Gadget Repair",
-  "kategori": "HP & Gadget",
-  "tarifMulai": 50000,
-  "biayaPanggil": 20000,
-  "slotTersedia": 4,
-  "lokasi": "Jl. Ahmad Yani No. 14, Banyuwangi Kota",
-  "deskripsi": "Spesialis ganti LCD, baterai kembung, konektor cas, dan perbaikan HP mati total semua merek.",
-  "imageUrl": "data:image/svg+xml;utf8,...",
-  "unggulan": true
-}
+Alurnya sederhana: browser memanggil API (`/api/...`), server memeriksa sesi dan peran, menjalankan query ke MySQL, lalu mengembalikan JSON. Semua halaman ada di origin yang sama, sehingga tidak ada masalah CORS.
+
+```
+Pelanggan ─┐
+Teknisi  ──┼─→ Browser → API Express (sesi + peran) → MySQL
+Admin    ─┘                      │
+                                 └→ tautan WhatsApp (wa.me)
 ```
 
-### Aturan Validasi Atribut
-| Properti | Tipe Data | Aturan / Keterangan |
-| :--- | :--- | :--- |
-| `id` | `string` | Pengenal unik setiap profil teknisi (contoh: `"tek-01"` atau timestamp). |
-| `nama` | `string` | Wajib diisi, minimal 3 karakter. |
-| `kategori` | `string` | Salah satu dari: `"HP & Gadget"`, `"Laptop & PC"`, `"Kulkas & Mesin Cuci"`, `"TV & Audio"`, `"AC & Pendingin"`. |
-| `tarifMulai` | `number` | Angka Rupiah `>= 0` (estimasi biaya jasa dasar). |
-| `biayaPanggil` | `number` | Angka Rupiah `>= 0` (tambahan biaya transportasi jika teknisi datang ke rumah). |
-| `slotTersedia` | `integer` | Bilangan bulat `>= 0` (kuota layanan tersedia pada hari berjalan). |
-| `lokasi` | `string` | Wajib diisi, informasi area atau patokan alamat bengkel. |
-| `deskripsi` | `string` | Wajib diisi, penjelasan singkat jenis kerusakan yang ditangani. |
-| `imageUrl` | `string` | Data URI SVG lokal bawaan berdasarkan kategori (menghindari tautan eksternal rusak). |
-| `unggulan` | `boolean` | `true` jika ditampilkan sebagai teknisi rekomendasi utama, `false` jika reguler. |
+## 3. Peran dan hak akses
 
----
+| Peran | Yang bisa dilakukan |
+|---|---|
+| **Admin** | Melihat ringkasan direktori; menambah, mengedit, mengubah peran, menonaktifkan, dan menghapus pengguna; memverifikasi teknisi, menjadikan unggulan, mengatur slot; mengelola kategori umum; memantau semua pesanan. |
+| **Teknisi** | Mengatur profil teknisi/usaha (termasuk kategori pribadi dan tautan Google Maps); mengelola layanan beserta tarifnya; menerima, mengerjakan, menyelesaikan, atau menolak pesanan; melihat ringkasan performa. |
+| **Pelanggan** | Mencari dan memfilter teknisi; melihat detail layanan; membuat pesanan panggil ke rumah atau datang ke lokasi; memantau dan membatalkan pesanannya; mengubah data akun. |
 
-## 5. Nonfunctional Requirements
-1. **Tech Stack:** Vite + JavaScript Vanilla (HTML5, CSS3, ES6+) tanpa *framework backend* dan tanpa layar login palsu.
-2. **Keamanan & Privasi:**
-   - Tidak menyimpan API key atau kredensial rahasia apa pun di dalam kode maupun `localStorage`.
-   - Seluruh data contoh bersifat nonpribadi; tautan WhatsApp menggunakan nomor simulasi baku (`6281200000000`).
-   - Tidak menggunakan aset gambar eksternal berhak cipta; seluruh ikon dan ilustrasi menggunakan SVG lokal buatan sendiri.
-3. **Antarmuka & Responsivitas:** Tampilan bersih, kontras terbaca jelas pada layar ponsel (*mobile*) maupun laptop (*desktop*), serta menggunakan format mata uang Rupiah (`Rp 50.000`).
-4. **Kinerja:** Waktu muat instan (< 1 detik) karena seluruh data awal dan aset berada secara lokal.
+Halaman katalog bisa dibuka tanpa login. Membuat pesanan wajib masuk sebagai pelanggan. Dashboard menyesuaikan menu dengan peran yang sedang login.
 
----
+## 4. Alur utama
 
-## 6. Risiko & Mitigasi
-| Risiko | Dampak | Mitigasi |
-| :--- | :--- | :--- |
-| Data `localStorage` rusak atau terhapus pengguna | Aplikasi gagal merender daftar teknisi | Membungkus `JSON.parse` dengan `try-catch` dan otomatis memuat ulang 8 data bawaan jika data kosong/korup, serta menyediakan tombol *Reset Data Demo*. |
-| Perangkat pengujian tidak terinstal aplikasi WhatsApp | Tautan `https://wa.me/...` tidak membuka aplikasi chat | Menyediakan modal pratinjau pesan lengkap dengan tombol **Salin Teks Pesan** di samping tombol **Buka WhatsApp**. |
-| Input angka negatif atau kosong pada form admin | Perhitungan estimasi tarif atau total slot menjadi `NaN`/negatif | Melakukan sanitasi `Math.max(0, parseInt(val) || 0)` sebelum menyimpan data ke state dan `localStorage`. |
+1. **Cari** — pelanggan membuka katalog, mencari kata kunci (nama, area, jenis kerusakan, atau nama layanan), memilih kategori, dan mengurutkan berdasarkan rekomendasi, tarif, atau slot.
+2. **Pilih** — detail teknisi menampilkan deskripsi keahlian, daftar layanan dengan tipe harganya, alamat, tautan Google Maps, serta sisa slot hari ini.
+3. **Pesan** — pelanggan memilih layanan, mode layanan, jadwal, alamat, dan menuliskan keluhan. Sistem menghitung perkiraan biaya, menyimpan pesanan dengan kode unik, dan mengurangi slot teknisi satu.
+4. **WhatsApp** — pesan otomatis berisi kode pesanan, layanan, mode, jadwal, alamat, keluhan, dan perkiraan biaya. Pelanggan bisa menyalin teks atau langsung membuka `wa.me`. Nomor WhatsApp memakai format internasional.
+5. **Kelola** — teknisi memperbarui status pesanan. Pelanggan melihat perubahan status dan bisa membatalkan pesanan selama belum dikerjakan; slot otomatis dikembalikan.
 
----
+## 5. Tipe harga layanan
 
-## 7. Out-of-Scope (Di Luar Cakupan MVP)
-- Sistem autentikasi akun pengguna/mitra (login/register) dan manajemen peran berbasis server.
-- Basis data *cloud* / REST API *backend* (seluruh data hanya tersimpan lokal di browser perangkat).
-- Integrasi pembayaran digital (*payment gateway*) maupun pelacakan lokasi GPS secara *real-time*.
-- Sistem ulasan/rating dinamis antar-pengguna.
+Satu teknisi bisa punya banyak layanan, dan tiap layanan punya tipe harganya sendiri:
 
----
+| Tipe | Tampilan ke pelanggan | Cocok untuk |
+|---|---|---|
+| **Harga tetap** | `Rp 350.000` | Servis dengan biaya pasti, mis. ganti LCD. |
+| **Mulai dari** | `Mulai Rp 200.000` | Perbaikan yang biayanya bergantung hasil pengecekan. |
+| **Sesuai diagnosa** | `Sesuai diagnosa` | Kerusakan yang belum diketahui; harga ditentukan setelah pemeriksaan. |
 
-## 8. Acceptance Criteria (Pemeriksaan Manual)
-1. **Inisialisasi Katalog:** Saat aplikasi pertama kali dibuka, tampil tepat **8 profil teknisi contoh** lengkap dengan ilustrasi lokal, tarif mulai, biaya panggil, lokasi, dan slot tersedia.
-2. **Pencarian & Filter:** Mengetik kata kunci kerusakan (misal *"kulkas"* atau *"LCD"*) dan memilih filter kategori langsung menyaring daftar kartu teknisi secara akurat.
-3. **Sorting:** Memilih urutan *Tarif Termurah* mengurutkan kartu dari `tarifMulai` terkecil ke terbesar; memilih *Rekomendasi* menempatkan teknisi `unggulan: true` di posisi teratas.
-4. **Alur Pesan WhatsApp:** Mengklik tombol **Pesan via WhatsApp** membuka modal pilihan layanan (*Panggil ke Rumah* vs *Datang ke Bengkel*), memperbarui estimasi total biaya secara otomatis, dan menghasilkan URL `https://wa.me/6281200000000?text=...` yang valid.
-5. **CRUD Dashboard & Ringkasan:** Menambah, mengedit, atau menghapus teknisi di tab Dashboard langsung memperbarui angka ringkasan (*Total Teknisi*, *Total Slot*, *Jumlah Kategori*) dan daftar di Katalog.
-6. **Persistensi `localStorage`:** Setelah melakukan perubahan data di Dashboard lalu me-*refresh* halaman browser (`F5`), data perubahan tetap tersimpan.
-7. **Slot Penuh:** Jika `slotTersedia` diubah menjadi `0`, kartu teknisi di katalog menampilkan status **Slot Penuh** dan tombol pemesanan tidak dapat diklik.
+Setiap layanan juga ditandai **jasa saja** atau **termasuk komponen/spare part**. Harga layanan bersifat opsional: teknisi tetap punya *tarif servis mulai* di profil sebagai patokan umum dan untuk pengurutan katalog.
 
----
+Perkiraan pesanan dihitung: harga layanan (atau tarif mulai bila pelanggan memilih servis umum) + biaya panggil bila mode *panggil ke rumah*. Untuk layanan bertipe "sesuai diagnosa", sistem tidak memaksakan angka — pesanan mencatat total 0 dan pesan WhatsApp menyebut bahwa biaya menunggu diagnosa. Tipe harga disimpan sebagai snapshot di pesanan agar riwayat tidak berubah saat tarif diperbarui.
 
-## 9. Implementation Plan per Iterasi
-- **Iterasi 1 — Perencanaan & Fondasi Data:** Menyusun `SPEC.md`, struktur folder proyek Vite + Vanilla JS, serta dataset awal 8 teknisi dengan generator ilustrasi SVG lokal.
-- **Iterasi 2 — Katalog Pelanggan & Integrasi WhatsApp:** Membangun tampilan daftar kartu teknisi, fitur pencarian, filter kategori, pengurutan (*sorting*), serta modal pemesanan WhatsApp otomatis.
-- **Iterasi 3 — Dashboard Admin CRUD & Persistensi:** Membangun ringkasan statistik, formulir tambah/edit teknisi, aksi hapus, sinkronisasi `localStorage`, dan fitur *Reset Data Demo*.
-- **Iterasi 4 — Pengujian Manual & Penyempurnaan UX:** Memverifikasi seluruh poin *Acceptance Criteria*, responsivitas layar seluler, dan kejelasan pesan umpan balik (*toast notification*).
+## 6. Aturan bisnis
+
+- Teknisi hanya muncul di katalog jika **sudah diverifikasi admin** dan akunnya aktif. Teknisi baru mendaftar dengan status menunggu verifikasi.
+- Teknisi dengan slot 0 tampil sebagai **Slot penuh** dan tombol pemesanan dinonaktifkan.
+- Slot dikurangi saat pesanan dibuat dan dikembalikan saat pesanan dibatalkan. Pengurangan dilakukan dalam transaksi database agar tidak bentrok.
+- Status pesanan: `pending → confirmed / in_progress / cancelled`, `confirmed → in_progress / cancelled`, `in_progress → completed / cancelled`. Perpindahan lain ditolak.
+- Kategori umum dikelola admin dan dipakai saat pendaftaran. Teknisi dapat membuat **kategori pribadi**; kategori itu hanya muncul dan bisa dipakai oleh akun pembuatnya, tidak terlihat oleh teknisi lain. Di katalog, kategori tetap muncul sebagai filter jika ada teknisi terverifikasi yang memakainya.
+- Tautan Google Maps bersifat opsional. Server hanya menerima tautan dari domain Google Maps (mis. `maps.app.goo.gl` atau `maps.google.com`).
+- Admin tidak bisa menghapus atau menonaktifkan akunnya sendiri, dan sistem selalu menyisakan minimal satu admin aktif.
+- Pesanan menyimpan salinan nama/telepon pelanggan dan teknisi, sehingga riwayat tetap utuh meskipun akun dihapus.
+
+## 7. Struktur data
+
+| Tabel | Isi penting |
+|---|---|
+| `users` | Nama, email unik, telepon, hash kata sandi, peran (`admin`/`technician`/`customer`), status (`active`/`suspended`). |
+| `categories` | Nama, deskripsi, ikon, urutan, dan `owner_user_id` (kosong = kategori umum, terisi = kategori pribadi teknisi). |
+| `technicians` | Profil usaha: nama, kategori, deskripsi, alamat, `maps_url`, area, WhatsApp, tarif mulai, biaya panggil, slot, unggulan, terverifikasi, rating. |
+| `services` | Layanan per teknisi: nama, deskripsi, `price_type` (`fixed`/`starting`/`quote`), `includes_parts`, harga, estimasi menit, status aktif. |
+| `orders` | Kode unik, pelanggan, teknisi, layanan, snapshot nama/telepon, tipe harga, mode layanan, keluhan, alamat, total perkiraan, status, jadwal. |
+| `sessions` | Sesi login (disimpan server, bukan di browser). |
+
+## 8. Keamanan dan kualitas
+
+- Kata sandi di-hash dengan bcrypt (cost 12). Tidak ada kredensial yang disimpan di kode atau browser.
+- Semua query memakai prepared statement, dan semua input divalidasi ulang di server (Zod) — termasuk larangan angka negatif, format WhatsApp, dan tautan Maps.
+- Cookie sesi `HttpOnly` + `SameSite=Lax` (+ `Secure` saat production), ID sesi diganti setiap login. Akun yang dinonaktifkan langsung kehilangan akses pada permintaan berikutnya.
+- Rate limit untuk login (10 percobaan / 15 menit) dan pembuatan pesanan (30 / jam).
+- Header keamanan (helmet + CSP), permintaan pengubah data dari origin lain ditolak, dan pesan error 500 menyertakan kode referensi agar mudah ditelusuri.
+- Antarmuka responsif untuk ponsel dan laptop, memakai format Rupiah, dan tetap terbaca tanpa aset eksternal.
+
+## 9. Menjalankan aplikasi
+
+```bash
+cp .env.example .env     # isi kredensial MySQL + SESSION_SECRET
+npm install
+npm run db:init && npm run db:seed
+npm start                # http://localhost:3000
+npm run db:check         # diagnosa koneksi & kelengkapan tabel
+```
+
+Untuk database yang sudah berisi data, jalankan migrasi `db/migrations/001_pricing_maps_private_categories.sql` sekali lewat phpMyAdmin (atau `mysql` CLI), bukan `db:init --reset`.
+
+**Akun demo:** admin `admin@teknikita.id` / `Admin#2026` · teknisi `teknisi1@teknikita.id` / `Teknisi#2026` · pelanggan `pelanggan1@teknikita.id` / `Pelanggan#2026`.
+
+## 10. Batasan saat ini
+
+Di luar cakupan versi ini: pembayaran digital, pelacakan lokasi real-time, chat internal (komunikasi lewat WhatsApp), ulasan/rating yang dibuat pengguna (rating masih data contoh), notifikasi email/push, serta multi-bahasa.
+
+## 11. Perkembangan dari versi MVP
+
+Versi awal adalah satu halaman dengan data di `localStorage`, tanpa login dan tanpa database. Versi sekarang: backend Express dengan MySQL, autentikasi sesi dan tiga peran nyata, CRUD pengguna oleh admin, profil serta layanan yang dikelola teknisi, kategori pribadi, tautan Google Maps, dan tiga tipe harga per layanan. Tampilan, istilah ("bengkel" → "teknisi"), serta alur pesanan ikut disesuaikan, termasuk perhitungan estimasi dan teks pesan WhatsApp.

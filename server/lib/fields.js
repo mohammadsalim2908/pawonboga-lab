@@ -43,6 +43,26 @@ export const slotField = z.coerce
   .min(0, 'Slot tidak boleh negatif.')
   .max(50, 'Slot maksimal 50 per hari.');
 
+/** Tautan Google Maps opsional; hanya menerima domain Google Maps. */
+export const mapsUrlField = z
+  .string()
+  .trim()
+  .max(500, 'Tautan terlalu panjang.')
+  .optional()
+  .default('')
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      const host = url.hostname.toLowerCase();
+      const allowed = ['maps.app.goo.gl', 'goo.gl', 'maps.google.com', 'google.com', 'www.google.com', 'google.co.id', 'maps.google.co.id', 'www.google.co.id'];
+      if (!['http:', 'https:'].includes(url.protocol)) return false;
+      return allowed.includes(host) || host.endsWith('.google.com') || host.endsWith('.google.co.id');
+    } catch {
+      return false;
+    }
+  }, 'Tautan Google Maps tidak valid. Contoh: https://maps.app.goo.gl/xxxx atau https://maps.google.com/?q=alamat');
+
 export const textField = (label, min = 1, max = 255) =>
   z
     .string({ required_error: `${label} wajib diisi.` })

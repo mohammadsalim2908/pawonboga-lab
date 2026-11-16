@@ -48,7 +48,7 @@ if (registerForm) {
 
   async function loadCategories() {
     try {
-      const data = await api('/catalog/categories');
+      const data = await api('/catalog/categories?scope=global');
       document.getElementById('categoryId').innerHTML =
         '<option value="">Pilih kategori…</option>' +
         data.categories
@@ -101,7 +101,7 @@ if (registerForm) {
         description: registerForm.description.value.trim(),
       });
       if (!payload.businessName || !payload.categoryId || !payload.address || !payload.area || !payload.whatsappNumber) {
-        errorBox.textContent = 'Nama bengkel, kategori, alamat, area, dan nomor WhatsApp wajib diisi.';
+        errorBox.textContent = 'Nama teknisi/usaha, kategori, alamat, area, dan nomor WhatsApp wajib diisi.';
         errorBox.classList.remove('hidden');
         return;
       }

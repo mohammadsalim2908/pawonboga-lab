@@ -74,10 +74,12 @@ router.post(
     let technician = null;
     if (data.role === 'technician') {
       if (!data.businessName || !data.categoryId || !data.address || !data.area || !data.whatsappNumber) {
-        throw badRequest('Nama bengkel, kategori, alamat, area, dan nomor WhatsApp wajib diisi untuk akun teknisi.');
+        throw badRequest('Nama teknisi/usaha, kategori, alamat, area, dan nomor WhatsApp wajib diisi untuk akun teknisi.');
       }
-      const category = await first('SELECT id FROM categories WHERE id = ?', [data.categoryId]);
-      if (!category) throw badRequest('Kategori keahlian tidak ditemukan.');
+      const category = await first('SELECT id, owner_user_id FROM categories WHERE id = ?', [data.categoryId]);
+      if (!category || category.owner_user_id !== null) {
+        throw badRequest('Kategori keahlian tidak ditemukan. Pilih kategori umum yang tersedia.');
+      }
       technician = data;
     }
 

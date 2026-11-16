@@ -1022,6 +1022,10 @@ svg {
   overflow-y: auto;
 }
 
+.modal-foot:empty {
+  display: none;
+}
+
 .modal-foot {
   display: flex;
   flex-wrap: wrap;

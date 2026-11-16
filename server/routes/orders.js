@@ -35,8 +35,14 @@ export function formatRupiah(value) {
   return `Rp ${Number(value || 0).toLocaleString('id-ID')}`;
 }
 
+function priceLine(order) {
+  if (order.price_type === 'quote') return 'menyesuaikan hasil diagnosa teknisi';
+  if (order.price_type === 'starting') return `mulai dari ${formatRupiah(order.estimated_total)}`;
+  return formatRupiah(order.estimated_total);
+}
+
 export function buildWhatsAppUrl(order, mode) {
-  const modeLabel = mode === 'home' ? 'Panggil ke Rumah' : 'Datang ke Bengkel';
+  const modeLabel = mode === 'home' ? 'Panggil ke Rumah' : 'Datang ke Lokasi Teknisi';
   const lines = [
     '*Pesanan TekniKita*',
     `Kode: ${order.code}`,
@@ -48,7 +54,7 @@ export function buildWhatsAppUrl(order, mode) {
     order.scheduled_date ? `Jadwal: ${order.scheduled_date}` : null,
     order.customer_address ? `Alamat: ${order.customer_address}` : null,
     order.complaint ? `Keluhan: ${order.complaint}` : null,
-    `Estimasi biaya: ${formatRupiah(order.estimated_total)}`,
+    `Perkiraan biaya: ${priceLine(order)}`,
     '',
     'Mohon konfirmasi ketersediaan dan jadwalnya. Terima kasih.',
   ].filter((line) => line !== null);
@@ -98,17 +104,19 @@ router.post(
         if (!service) throw badRequest('Layanan yang dipilih tidak tersedia pada teknisi ini.');
       }
 
+      // Tipe harga: layanan tertentu bisa "mulai dari" atau "sesuai diagnosa".
+      const priceType = service ? service.price_type : 'starting';
       const basePrice = service ? Number(service.price) : Number(technician.tariff_start);
       const callFee = data.mode === 'home' ? Number(technician.call_fee) : 0;
-      const estimatedTotal = basePrice + callFee;
+      const estimatedTotal = priceType === 'quote' ? 0 : basePrice + callFee;
       const code = generateCode();
 
       const [insert] = await conn.execute(
         `INSERT INTO orders
            (code, customer_id, technician_id, service_id, customer_name, customer_phone,
-            technician_name, technician_phone, service_name, service_mode, complaint,
+            technician_name, technician_phone, service_name, price_type, service_mode, complaint,
             customer_address, estimated_total, scheduled_date)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           code,
           req.user.id,
@@ -119,6 +127,7 @@ router.post(
           technician.business_name,
           technician.whatsapp_number,
           service?.name ?? `${technician.category_name} — servis umum`,
+          priceType,
           data.mode,
           data.complaint,
           data.address,

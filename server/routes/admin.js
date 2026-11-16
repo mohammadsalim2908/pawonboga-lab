@@ -72,7 +72,7 @@ async function countActiveAdmins() {
 
 async function ensureTechnicianProfile(userId, data) {
   if (!data.businessName || !data.categoryId) {
-    throw badRequest('Nama bengkel dan kategori wajib diisi saat membuat/mengubah akun menjadi teknisi.');
+    throw badRequest('Nama teknisi/usaha dan kategori wajib diisi saat membuat/mengubah akun menjadi teknisi.');
   }
   const category = await first('SELECT id FROM categories WHERE id = ?', [data.categoryId]);
   if (!category) throw badRequest('Kategori tidak ditemukan.');
@@ -381,10 +381,19 @@ router.get(
   '/categories',
   asyncHandler(async (_req, res) => {
     const rows = await query(
-      `SELECT c.*, (SELECT COUNT(*) FROM technicians t WHERE t.category_id = c.id) AS technician_count
-         FROM categories c ORDER BY c.sort_order ASC, c.name ASC`,
+      `SELECT c.*, u.name AS owner_name,
+              (SELECT COUNT(*) FROM technicians t WHERE t.category_id = c.id) AS technician_count
+         FROM categories c
+         LEFT JOIN users u ON u.id = c.owner_user_id
+        ORDER BY c.owner_user_id IS NOT NULL, c.sort_order ASC, c.name ASC`,
     );
-    res.json({ categories: rows.map((row) => ({ ...row, technician_count: Number(row.technician_count) })) });
+    res.json({
+      categories: rows.map((row) => ({
+        ...row,
+        technician_count: Number(row.technician_count),
+        is_private: row.owner_user_id !== null,
+      })),
+    });
   }),
 );
 

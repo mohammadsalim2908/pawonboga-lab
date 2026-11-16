@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { query, first } from '../db.js';
 import { asyncHandler, badRequest, conflict, notFound, parseBody, parseId } from '../lib/http.js';
 import { requireRole } from '../middleware/auth.js';
-import { textField, whatsappField, moneyField, slotField, optionalText } from '../lib/fields.js';
+import { textField, whatsappField, moneyField, slotField, optionalText, mapsUrlField } from '../lib/fields.js';
 
 const router = Router();
 router.use(requireRole('technician'));
@@ -17,10 +17,11 @@ async function myTechnician(userId) {
 }
 
 const profileSchema = z.object({
-  businessName: textField('Nama bengkel / teknisi', 3, 140),
+  businessName: textField('Nama teknisi / usaha', 3, 140),
   categoryId: z.coerce.number().int().positive('Kategori wajib dipilih.'),
   description: textField('Deskripsi keahlian', 10, 2000),
-  address: textField('Alamat bengkel', 5, 255),
+  address: textField('Alamat teknisi', 5, 255),
+  mapsUrl: mapsUrlField,
   area: textField('Area layanan', 3, 120),
   whatsappNumber: whatsappField,
   tariffStart: moneyField,
@@ -28,12 +29,28 @@ const profileSchema = z.object({
   slotsAvailable: slotField,
 });
 
-const serviceSchema = z.object({
-  name: textField('Nama layanan', 3, 140),
-  description: optionalText(255),
-  price: moneyField,
-  estimatedMinutes: z.coerce.number().int().min(10, 'Estimasi minimal 10 menit.').max(2880, 'Estimasi maksimal 2 hari.'),
-  isActive: z.boolean().optional().default(true),
+const serviceSchema = z
+  .object({
+    name: textField('Nama layanan', 3, 140),
+    description: optionalText(255),
+    priceType: z.enum(['fixed', 'starting', 'quote'], {
+      errorMap: () => ({ message: 'Tipe harga tidak valid.' }),
+    }).default('fixed'),
+    includesParts: z.boolean().optional().default(false),
+    price: moneyField,
+    estimatedMinutes: z.coerce.number().int().min(10, 'Estimasi minimal 10 menit.').max(2880, 'Estimasi maksimal 2 hari.'),
+    isActive: z.boolean().optional().default(true),
+  })
+  .transform((data) => ({
+    ...data,
+    // Layanan bertipe "sesuai diagnosa" tidak menyimpan angka harga.
+    price: data.priceType === 'quote' ? 0 : data.price,
+  }));
+
+const categorySchema = z.object({
+  name: textField('Nama kategori', 3, 80),
+  description: z.string().trim().max(255).optional().default(''),
+  icon: z.string().trim().max(40).optional().default('wrench'),
 });
 
 const statusTransitions = {
@@ -64,19 +81,23 @@ router.put(
     const data = parseBody(profileSchema, req.body);
     const technician = await myTechnician(req.user.id);
 
-    const category = await first('SELECT id FROM categories WHERE id = ?', [data.categoryId]);
+    const category = await first('SELECT id, owner_user_id FROM categories WHERE id = ?', [data.categoryId]);
     if (!category) throw badRequest('Kategori keahlian tidak ditemukan.');
+    if (category.owner_user_id && category.owner_user_id !== req.user.id) {
+      throw badRequest('Kategori tersebut milik teknisi lain. Buat kategori sendiri terlebih dahulu.');
+    }
 
     await query(
       `UPDATE technicians
-          SET business_name = ?, category_id = ?, description = ?, address = ?, area = ?,
-              whatsapp_number = ?, tariff_start = ?, call_fee = ?, slots_available = ?
+          SET business_name = ?, category_id = ?, description = ?, address = ?, maps_url = ?,
+              area = ?, whatsapp_number = ?, tariff_start = ?, call_fee = ?, slots_available = ?
         WHERE id = ?`,
       [
         data.businessName,
         data.categoryId,
         data.description,
         data.address,
+        data.mapsUrl,
         data.area,
         data.whatsappNumber,
         data.tariffStart,
@@ -98,6 +119,49 @@ router.patch(
     const technician = await myTechnician(req.user.id);
     await query('UPDATE technicians SET slots_available = ? WHERE id = ?', [data.slotsAvailable, technician.id]);
     res.json({ slotsAvailable: data.slotsAvailable });
+  }),
+);
+
+/* ------------------------------ Kategori --------------------------------- */
+// Teknisi melihat kategori umum + kategori pribadinya sendiri.
+router.get(
+  '/categories',
+  asyncHandler(async (req, res) => {
+    const rows = await query(
+      `SELECT c.id, c.name, c.description, c.icon, c.owner_user_id,
+              (c.owner_user_id = ?) AS is_own
+         FROM categories c
+        WHERE c.owner_user_id IS NULL OR c.owner_user_id = ?
+        ORDER BY c.owner_user_id IS NOT NULL, c.sort_order ASC, c.name ASC`,
+      [req.user.id, req.user.id],
+    );
+    res.json({
+      categories: rows.map((row) => ({ ...row, is_own: Boolean(Number(row.is_own)) })),
+    });
+  }),
+);
+
+// Teknisi membuat kategori pribadi: hanya terlihat oleh akunnya sendiri.
+router.post(
+  '/categories',
+  asyncHandler(async (req, res) => {
+    const data = parseBody(categorySchema, req.body);
+
+    const duplicate = await first(
+      `SELECT id FROM categories
+        WHERE name = ? AND (owner_user_id = ? OR owner_user_id IS NULL)`,
+      [data.name, req.user.id],
+    );
+    if (duplicate) throw conflict('Kategori dengan nama tersebut sudah tersedia di daftar Anda.');
+
+    const result = await query(
+      'INSERT INTO categories (name, description, icon, owner_user_id, sort_order) VALUES (?, ?, ?, ?, 99)',
+      [data.name, data.description || 'Kategori pribadi teknisi', data.icon, req.user.id],
+    );
+
+    res.status(201).json({
+      category: { id: result.insertId, name: data.name, description: data.description, icon: data.icon, is_own: true },
+    });
   }),
 );
 
@@ -190,7 +254,14 @@ router.get(
       'SELECT * FROM services WHERE technician_id = ? ORDER BY is_active DESC, price ASC, id ASC',
       [technician.id],
     );
-    res.json({ services: rows.map((row) => ({ ...row, price: Number(row.price), is_active: Boolean(row.is_active) })) });
+    res.json({
+      services: rows.map((row) => ({
+        ...row,
+        price: Number(row.price),
+        is_active: Boolean(row.is_active),
+        includes_parts: Boolean(row.includes_parts),
+      })),
+    });
   }),
 );
 
@@ -200,9 +271,19 @@ router.post(
     const data = parseBody(serviceSchema, req.body);
     const technician = await myTechnician(req.user.id);
     const result = await query(
-      `INSERT INTO services (technician_id, name, description, price, estimated_minutes, is_active)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [technician.id, data.name, data.description, data.price, data.estimatedMinutes, data.isActive ? 1 : 0],
+      `INSERT INTO services
+         (technician_id, name, description, price_type, includes_parts, price, estimated_minutes, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        technician.id,
+        data.name,
+        data.description,
+        data.priceType,
+        data.includesParts ? 1 : 0,
+        data.price,
+        data.estimatedMinutes,
+        data.isActive ? 1 : 0,
+      ],
     );
     res.status(201).json({ id: result.insertId });
   }),
@@ -218,9 +299,21 @@ router.put(
     if (!existing) throw notFound('Layanan tidak ditemukan.');
 
     await query(
-      `UPDATE services SET name = ?, description = ?, price = ?, estimated_minutes = ?, is_active = ?
+      `UPDATE services
+          SET name = ?, description = ?, price_type = ?, includes_parts = ?, price = ?,
+              estimated_minutes = ?, is_active = ?
         WHERE id = ? AND technician_id = ?`,
-      [data.name, data.description, data.price, data.estimatedMinutes, data.isActive ? 1 : 0, id, technician.id],
+      [
+        data.name,
+        data.description,
+        data.priceType,
+        data.includesParts ? 1 : 0,
+        data.price,
+        data.estimatedMinutes,
+        data.isActive ? 1 : 0,
+        id,
+        technician.id,
+      ],
     );
     res.json({ ok: true });
   }),

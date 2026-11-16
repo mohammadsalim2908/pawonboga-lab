@@ -171,7 +171,7 @@ export function openModal({ title, subtitle = '', body = '', footer = '', size =
         <button type="button" class="icon-btn" data-modal-close aria-label="Tutup">${icon('x')}</button>
       </div>
       <div class="modal-body">${body}</div>
-      ${footer ? `<div class="modal-foot">${footer}</div>` : ''}
+      <div class="modal-foot">${footer}</div>
     </div>`;
 
   const dialog = backdrop.querySelector('.modal');
@@ -264,8 +264,30 @@ export function loadingState(text = 'Memuat data…') {
   return `<div class="loading-block"><span class="spinner"></span>${escapeHtml(text)}</div>`;
 }
 
+export const PRICE_TYPE_LABEL = {
+  fixed: 'Harga tetap',
+  starting: 'Mulai dari',
+  quote: 'Sesuai diagnosa',
+};
+
+/** Label harga sebuah layanan (mendukung harga tetap / mulai dari / sesuai diagnosa). */
+export function servicePriceText(service) {
+  if (!service) return '—';
+  if (service.price_type === 'quote') return 'Sesuai diagnosa';
+  if (service.price_type === 'starting') return `Mulai ${rupiah(service.price)}`;
+  return rupiah(service.price);
+}
+
+/** Label total pesanan berdasarkan snapshot price_type. */
+export function orderPriceText(order) {
+  if (!order) return '—';
+  if (order.price_type === 'quote') return 'Sesuai diagnosa';
+  if (order.price_type === 'starting') return `Mulai ${rupiah(order.estimated_total)}`;
+  return rupiah(order.estimated_total);
+}
+
 export function buildWhatsAppLink(order) {
-  const modeLabel = order.service_mode === 'home' ? 'Panggil ke Rumah' : 'Datang ke Bengkel';
+  const modeLabel = order.service_mode === 'home' ? 'Panggil ke Rumah' : 'Datang ke Lokasi Teknisi';
   const lines = [
     '*Pesanan TekniKita*',
     `Kode: ${order.code}`,
@@ -277,7 +299,13 @@ export function buildWhatsAppLink(order) {
     order.scheduled_date ? `Jadwal: ${String(order.scheduled_date).slice(0, 10)}` : null,
     order.customer_address ? `Alamat: ${order.customer_address}` : null,
     order.complaint ? `Keluhan: ${order.complaint}` : null,
-    `Estimasi biaya: ${rupiah(order.estimated_total)}`,
+    `Perkiraan biaya: ${
+      order.price_type === 'quote'
+        ? 'menyesuaikan hasil diagnosa teknisi'
+        : order.price_type === 'starting'
+          ? `mulai dari ${rupiah(order.estimated_total)}`
+          : rupiah(order.estimated_total)
+    }`,
     '',
     'Mohon konfirmasi ketersediaan dan jadwalnya. Terima kasih.',
   ].filter((line) => line !== null);

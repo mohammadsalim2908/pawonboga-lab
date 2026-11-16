@@ -70,8 +70,9 @@
 
           <div id="technicianFields" class="form-grid hidden">
             <div class="field">
-              <label for="businessName">Nama bengkel / usaha</label>
+              <label for="businessName">Nama teknisi / usaha</label>
               <input class="input" id="businessName" name="businessName" placeholder="Contoh: Rizky Cell & Gadget Repair" />
+              <span class="hint">Nama yang akan dilihat pelanggan di katalog.</span>
             </div>
             <div class="form-row">
               <div class="field">
@@ -79,6 +80,7 @@
                 <select class="select" id="categoryId" name="categoryId">
                   <option value="">Pilih kategori…</option>
                 </select>
+                <span class="hint">Setelah akun aktif, Anda bisa menambah kategori pribadi di dashboard.</span>
               </div>
               <div class="field">
                 <label for="whatsappNumber">Nomor WhatsApp</label>
@@ -90,6 +92,7 @@
               <div class="field">
                 <label for="tariffStart">Tarif servis mulai (Rp)</label>
                 <input class="input" id="tariffStart" name="tariffStart" type="number" min="0" step="1000" value="50000" />
+                <span class="hint">Harga layanan detail diatur setelah akun aktif.</span>
               </div>
               <div class="field">
                 <label for="callFee">Biaya panggil ke rumah (Rp)</label>
@@ -101,12 +104,13 @@
               <input class="input" id="area" name="area" placeholder="Contoh: Banyuwangi Kota" />
             </div>
             <div class="field">
-              <label for="address">Alamat bengkel</label>
-              <input class="input" id="address" name="address" placeholder="Jl. Ahmad Yani No. 14" />
+              <label for="address">Alamat teknisi / lokasi layanan</label>
+              <input class="input" id="address" name="address" placeholder="Jl. Ahmad Yani No. 14, Banyuwangi" />
             </div>
             <div class="field">
-              <label for="description">Keahlian / kerusakan yang ditangani</label>
-              <textarea class="textarea" id="description" name="description" placeholder="Spesialis ganti LCD, baterai kembung, HP mati total…"></textarea>
+              <label for="description">Deskripsi keahlian</label>
+              <textarea class="textarea" id="description" name="description" placeholder="Contoh: Spesialis ganti LCD, baterai kembung, dan HP mati total semua merek. Melayani servis di rumah area Banyuwangi Kota, garansi 30 hari."></textarea>
+              <span class="hint">Semakin jelas keahlian Anda, semakin yakin pelanggan memilih.</span>
             </div>
             <div class="banner banner-info">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>

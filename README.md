@@ -15,8 +15,8 @@ Prototipe satu-halaman (localStorage) dikembangkan menjadi aplikasi **production
 - Proteksi: admin tidak bisa menghapus/menonaktifkan dirinya sendiri atau menghabiskan admin aktif terakhir.
 
 ### Teknisi (seller/mitra)
-- **Profil bengkel**: nama usaha, kategori keahlian, deskripsi, alamat, area, WhatsApp, tarif mulai, biaya panggil, slot harian.
-- **Layanan & tarif**: CRUD layanan (harga, estimasi menit, aktif/nonaktif).
+- **Profil teknisi**: nama teknisi/usaha, kategori keahlian (boleh menambah kategori pribadi), deskripsi keahlian, alamat, tautan Google Maps (opsional), area layanan, WhatsApp, tarif mulai, biaya panggil, slot harian.
+- **Layanan & tarif**: CRUD layanan dengan tipe harga per layanan — *harga tetap*, *mulai dari* (final setelah pengecekan), atau *sesuai diagnosa* (biaya belum diketahui) — plus penanda harga sudah termasuk komponen atau jasa saja.
 - **Pesanan masuk**: terima, mulai kerjakan, selesaikan, atau tolak pesanan; chat pelanggan via WhatsApp.
 - Ringkasan performa: jumlah pesanan per status, pendapatan dari pesanan selesai, layanan aktif.
 - Akun teknisi baru berstatus **menunggu verifikasi** dan baru tampil di katalog setelah disetujui admin.
@@ -24,7 +24,7 @@ Prototipe satu-halaman (localStorage) dikembangkan menjadi aplikasi **production
 ### Pelanggan (customer)
 - Katalog teknisi terverifikasi: pencarian real-time (nama/area/kerusakan/layanan), filter kategori, sorting.
 - Detail teknisi: layanan, tarif, biaya panggil, slot hari ini.
-- **Pesan via WhatsApp**: pilih mode *panggil ke rumah* / *datang ke bengkel*, layanan, jadwal, alamat, keluhan.
+- **Pesan via WhatsApp**: pilih mode *panggil ke rumah* / *datang ke lokasi teknisi*, layanan, jadwal, alamat, keluhan.
   Sistem menghitung estimasi, menyimpan pesanan dengan kode unik, mengurangi slot, lalu menyiapkan teks WhatsApp
   yang bisa disalin atau langsung dibuka (`wa.me`).
 - Riwayat pesanan, pembatalan pesanan (slot dikembalikan), perubahan data akun & kata sandi.
@@ -130,6 +130,19 @@ Nomor WhatsApp dummy memakai format internasional `6281200000001`–`62812000000
 - Rate limit login (10/15 menit) dan pembuatan pesanan (30/jam) per IP.
 - CSP membatasi script/style/gambar ke origin sendiri; permintaan pengubah data lintas origin ditolak.
 - Admin dapat menonaktifkan akun; sesi pengguna nonaktif otomatis berhenti pada permintaan berikutnya.
+
+## Migrasi database lama
+
+Jika database sudah berisi data (mis. hasil impor phpMyAdmin) dan Anda memperbarui aplikasi ini, jalankan
+**sekali** file migrasi berikut lewat phpMyAdmin → database → tab SQL:
+
+```
+db/migrations/001_pricing_maps_private_categories.sql
+```
+
+Migrasi ini menambahkan kolom `technicians.maps_url`, `services.price_type`, `services.includes_parts`,
+`orders.price_type`, dan `categories.owner_user_id` (kategori pribadi teknisi), serta menyesuaikan tipe
+harga layanan lama. Untuk pemasangan baru cukup `npm run db:init && npm run db:seed`.
 
 ## Troubleshooting
 

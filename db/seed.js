@@ -37,6 +37,7 @@ const technicians = [
       { name: 'Ganti Baterai HP', price: 150000, minutes: 45, description: 'Baterai baru bergaransi 3 bulan.' },
       { name: 'Perbaikan HP Mati Total', price: 200000, minutes: 180, description: 'Analisa jalur power dan IC charging.' },
       { name: 'Ganti Konektor Cas', price: 90000, minutes: 60, description: 'Penyolderan ulang konektor charging.' },
+      { name: 'Cek & Diagnosa Kerusakan', price: 0, minutes: 30, description: 'Pemeriksaan awal untuk menentukan kerusakan dan biaya final.' },
     ],
   },
   {
@@ -125,6 +126,7 @@ const technicians = [
       { name: 'Isi Freon AC', price: 275000, minutes: 90, description: 'Freon R32/R410a per unit.' },
       { name: 'Bongkar Pasang AC', price: 400000, minutes: 240, description: 'Termasuk instalasi pipa standar 3 meter.' },
       { name: 'Perbaikan AC Tidak Dingin', price: 150000, minutes: 120, description: 'Analisa kebocoran dan kapasitor.' },
+      { name: 'Survei & Estimasi Pemasangan AC', price: 0, minutes: 45, description: 'Survei lokasi untuk menghitung kebutuhan pipa dan bracket sebelum pemasangan.' },
     ],
   },
   {
@@ -207,6 +209,16 @@ const orders = [
   { customer: 2, technician: 6, service: 1, mode: 'home', status: 'pending', complaint: 'Printer kantor macet terus.', address: 'Toko Sumber Rejeki, Jl. Diponegoro 12', daysAgo: 0, date: true },
 ];
 
+/** Tentukan tipe harga & komponen dari nama layanan (data dummy). */
+function servicePricing(name) {
+  if (/diagnosa|estimasi|survei|cek kerusakan/i.test(name)) {
+    return { priceType: 'quote', includesParts: 0 };
+  }
+  const includesParts = /ganti (lcd|baterai|touchscreen|konektor|modul|led|seal)/i.test(name) || /isi freon/i.test(name) ? 1 : 0;
+  const priceType = /^(perbaikan|servis|recovery|upgrade)/i.test(name) ? 'starting' : 'fixed';
+  return { priceType, includesParts };
+}
+
 function rupiahRounded(value) {
   return value;
 }
@@ -258,15 +270,16 @@ async function main() {
     );
     const techResult = await query(
       `INSERT INTO technicians
-         (user_id, category_id, business_name, description, address, area, whatsapp_number,
+         (user_id, category_id, business_name, description, address, maps_url, area, whatsapp_number,
           tariff_start, call_fee, slots_available, is_featured, is_verified, rating)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`,
       [
         userResult.insertId,
         categoryIds.get(tech.category),
         tech.business,
         tech.description,
         tech.address,
+        `https://maps.google.com/?q=${encodeURIComponent(tech.address)}`,
         tech.area,
         tech.phone,
         tech.tariff,
@@ -279,9 +292,20 @@ async function main() {
     technicianIds.push({ id: techResult.insertId, business: tech.business, phone: tech.phone });
 
     for (const service of tech.services) {
+      const pricing = servicePricing(service.name);
       await query(
-        'INSERT INTO services (technician_id, name, description, price, estimated_minutes) VALUES (?, ?, ?, ?, ?)',
-        [techResult.insertId, service.name, service.description, rupiahRounded(service.price), service.minutes],
+        `INSERT INTO services
+           (technician_id, name, description, price_type, includes_parts, price, estimated_minutes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          techResult.insertId,
+          service.name,
+          service.description,
+          pricing.priceType,
+          pricing.includesParts,
+          pricing.priceType === 'quote' ? 0 : rupiahRounded(service.price),
+          service.minutes,
+        ],
       );
     }
   }
@@ -301,7 +325,8 @@ async function main() {
     const customer = customerIds[order.customer];
     const service = technicians[order.technician].services[order.service];
     const callFee = order.mode === 'home' ? technicians[order.technician].callFee : 0;
-    const total = service.price + callFee;
+    const pricing = servicePricing(service.name);
+    const total = pricing.priceType === 'quote' ? 0 : service.price + callFee;
     const code = `TK-DEMO${String(counter++).padStart(2, '0')}`;
     const createdAt = new Date();
     createdAt.setDate(createdAt.getDate() - order.daysAgo);
@@ -309,9 +334,9 @@ async function main() {
     await query(
       `INSERT INTO orders
          (code, customer_id, technician_id, customer_name, customer_phone, technician_name,
-          technician_phone, service_name, service_mode, complaint, customer_address,
+          technician_phone, service_name, price_type, service_mode, complaint, customer_address,
           estimated_total, status, scheduled_date, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         code,
         customer.id,
@@ -321,6 +346,7 @@ async function main() {
         technician.business,
         technician.phone,
         service.name,
+        pricing.priceType,
         order.mode,
         order.complaint,
         order.address,

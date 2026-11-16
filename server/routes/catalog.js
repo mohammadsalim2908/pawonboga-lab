@@ -13,14 +13,28 @@ const SORTS = {
 
 router.get(
   '/categories',
-  asyncHandler(async (_req, res) => {
+  asyncHandler(async (req, res) => {
+    // scope=global → hanya kategori umum (dipakai form pendaftaran teknisi).
+    // default → kategori yang dipakai teknisi terverifikasi (termasuk kategori pribadi).
+    const globalOnly = req.query.scope === 'global';
     const rows = await query(
-      `SELECT c.id, c.name, c.description, c.icon, c.sort_order,
-              (SELECT COUNT(*) FROM technicians t WHERE t.category_id = c.id AND t.is_verified = 1) AS technician_count
+      `SELECT c.id, c.name, c.description, c.icon, c.sort_order, c.owner_user_id,
+              (SELECT COUNT(*) FROM technicians t JOIN users u ON u.id = t.user_id
+                WHERE t.category_id = c.id AND t.is_verified = 1 AND u.status = 'active') AS technician_count
          FROM categories c
+        WHERE ${globalOnly ? 'c.owner_user_id IS NULL' : `
+              c.owner_user_id IS NULL
+              OR EXISTS (SELECT 1 FROM technicians t JOIN users u ON u.id = t.user_id
+                          WHERE t.category_id = c.id AND t.is_verified = 1 AND u.status = 'active')`}
         ORDER BY c.sort_order ASC, c.name ASC`,
     );
-    res.json({ categories: rows.map((row) => ({ ...row, technician_count: Number(row.technician_count) })) });
+    res.json({
+      categories: rows.map((row) => ({
+        ...row,
+        technician_count: Number(row.technician_count),
+        is_private: row.owner_user_id !== null,
+      })),
+    });
   }),
 );
 
@@ -120,8 +134,9 @@ router.get(
     if (!technician) throw notFound('Teknisi tidak ditemukan atau belum terverifikasi.');
 
     const services = await query(
-      `SELECT id, name, description, price, estimated_minutes
-         FROM services WHERE technician_id = ? AND is_active = 1 ORDER BY price ASC, name ASC`,
+      `SELECT id, name, description, price_type, includes_parts, price, estimated_minutes
+         FROM services WHERE technician_id = ? AND is_active = 1
+        ORDER BY (price_type = 'quote') ASC, price ASC, name ASC`,
       [id],
     );
 
@@ -136,7 +151,11 @@ router.get(
         rating: Number(technician.rating),
         password_hash: undefined,
       },
-      services: services.map((s) => ({ ...s, price: Number(s.price) })),
+      services: services.map((s) => ({
+        ...s,
+        price: Number(s.price),
+        includes_parts: Boolean(s.includes_parts),
+      })),
     });
   }),
 );
